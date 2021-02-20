@@ -15,7 +15,7 @@ const CourseList = ({ courses }) => (
     <tbody>
       {courses.map((course) => {
         return (
-          <tr key="course.id">
+          <tr key={course.id}>
             <td>
               <a
                 className="btn btn-light"
