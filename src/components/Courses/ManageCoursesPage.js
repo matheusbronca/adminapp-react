@@ -5,6 +5,8 @@ import { loadCourses, saveCourse } from '../../store/actions/courseActions';
 import { loadAuthors } from '../../store/actions/authorActions';
 import CourseForm from './CourseForm';
 import { newCourse } from '../../../tools/mockData';
+import Spinner from '../common/Spinner';
+import { toast } from 'react-toastify';
 
 const ManageCoursesPage = ({
   courses,
@@ -16,15 +18,18 @@ const ManageCoursesPage = ({
   // eslint-disable-next-line no-unused-vars
   ...props
 }) => {
-  const [course, setCourse] = React.useState({ ...course });
+  const [course, setCourse] = React.useState({ ...props.course });
   // eslint-disable-next-line no-unused-vars
   const [errors, setErrors] = React.useState({});
+  const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
     if (courses.length === 0) {
       loadCourses().catch((error) => {
         alert('Loading courses failed' + error);
       });
+    } else {
+      setCourse({ ...props.course });
     }
 
     if (authors.length === 0) {
@@ -32,7 +37,7 @@ const ManageCoursesPage = ({
         alert('Loading authors failed' + error);
       });
     }
-  }, []);
+  }, [props.course]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -41,20 +46,46 @@ const ManageCoursesPage = ({
       [name]: name === 'authorId' ? parseInt(value, 10) : value,
     }));
   }
-  function handleSave(event) {
-    event.preventDefault();
-    saveCourse(course).then(() => {
-      history.push('/courses');
-    });
+
+  function formIsValid() {
+    const { title, authorId, category } = course;
+    const errors = {};
+
+    if (!title) errors.title = 'Title is required';
+    if (!authorId) errors.author = 'Author is required';
+    if (!category) errors.category = 'Category is required';
+
+    setErrors(errors);
+
+    // Form is valid if the erros object still has no properties;
+    return Object.keys(errors).length === 0;
   }
 
-  return (
+  function handleSave(event) {
+    event.preventDefault();
+    if(!formIsValid()) return;
+    setSaving(true);
+    saveCourse(course)
+      .then(() => {
+        toast.success('Course saved.');
+        history.push('/courses');
+      })
+      .catch((error) => {
+        setSaving(false);
+        setErrors({ onSave: error.message });
+      });
+  }
+
+  return authors.length === 0 || courses.length === 0 ? (
+    <Spinner />
+  ) : (
     <CourseForm
       course={course}
       errors={errors}
       authors={authors}
       onChange={handleChange}
       onSave={handleSave}
+      saving={saving}
     />
   );
 };
@@ -71,9 +102,20 @@ ManageCoursesPage.propTypes = {
   // from React Router.;
 };
 
-function mapStateToProps(state) {
+export function getCourseBySlug(courses, slug) {
+  return courses.find((course) => course.slug === slug) || null;
+}
+
+// OwnProps: This lets us access the componet's props. We can use this to read the URL
+// data injected on props by React Router.
+function mapStateToProps(state, ownProps) {
+  const slug = ownProps.match.params.slug;
+  const course =
+    slug && state.courses.length > 0
+      ? getCourseBySlug(state.courses, slug)
+      : newCourse;
   return {
-    course: newCourse,
+    course,
     courses: state.courses,
     authors: state.authors,
   };
